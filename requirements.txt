@@ -1,0 +1,22 @@
+streamlit>=1.57
+python-dotenv>=1.0
+pandas>=2.0
+
+# LLM and agent
+google-genai>=1.0
+langchain-core>=1.0
+langchain-google-genai>=4.0
+langchain-ollama>=1.0
+ollama>=0.5
+langchain-text-splitters>=1.0
+langgraph>=1.0
+
+# PDF
+pypdf>=5.0
+
+# Vector databases
+langchain-qdrant>=1.0
+qdrant-client>=1.12
+snowflake-connector-python>=3.12
+cryptography>=42.0
+sqlglot>=26.0

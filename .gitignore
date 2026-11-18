@@ -1,0 +1,4 @@
+.env
+keys/*
+!keys/README.md
+__pycache__/

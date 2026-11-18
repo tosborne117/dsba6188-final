@@ -1,0 +1,343 @@
+<title>DSBA 6188 RAG Agent Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, ~72ch, with wide tables and diagrams scrolling in their own boxes */
+:root {
+  --bg: #f7f8f7;
+  --surface: #ffffff;
+  --fg: #1c2526;
+  --muted: #5a6668;
+  --line: #d9dfde;
+  --accent: #0f6b6f;
+  --accent-soft: #e2f0ef;
+  --warn: #8a5a00;
+  --warn-soft: #fbf1dc;
+  --code-bg: #eef2f1;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121819; --surface: #182122; --fg: #e3eaea; --muted: #9aa8a9; --line: #2c393b;
+    --accent: #5cc3c4; --accent-soft: #1b3334; --warn: #f0c46c; --warn-soft: #33290f; --code-bg: #1e2a2b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121819; --surface: #182122; --fg: #e3eaea; --muted: #9aa8a9; --line: #2c393b;
+  --accent: #5cc3c4; --accent-soft: #1b3334; --warn: #f0c46c; --warn-soft: #33290f; --code-bg: #1e2a2b;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg);
+  font: 17px/1.6 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+main { max-width: 72ch; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 2.1rem; }
+h2 { font-size: 1.4rem; padding-top: 8px; border-top: 1px solid var(--line); }
+h3 { font-size: 1.05rem; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; }
+a { color: var(--accent); }
+.eyebrow { font: 600 0.78rem/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.lede { color: var(--muted); font-size: 1.08rem; }
+code, pre { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre.code { background: var(--code-bg); padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 0; line-height: 1.5; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.94rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td code { white-space: nowrap; }
+.answer { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 14px 16px; border-radius: 0 6px 6px 0; display: flex; flex-direction: column; gap: 8px; }
+.note { background: var(--warn-soft); color: var(--fg); border-left: 3px solid var(--warn); padding: 12px 16px; border-radius: 0 6px 6px 0; }
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; overflow-x: auto; }
+svg.dg { display: block; width: 100%; height: auto; }
+svg.dg .n { fill: var(--surface); stroke: var(--muted); stroke-width: 1.2; }
+svg.dg .n-accent { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.2; }
+svg.dg .n-db { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.2; }
+svg.dg .t { fill: var(--fg); font: 600 13px var(--f-body); }
+svg.dg .t-sub { fill: var(--muted); font: 12px var(--f-body); }
+svg.dg .mono { font-family: var(--f-mono); font-size: 11.5px; }
+svg.dg .e { fill: none; stroke: var(--muted); stroke-width: 1.4; }
+svg.dg .e-dash { stroke-dasharray: 5 4; }
+svg.dg .ah { fill: var(--muted); }
+svg.dg .life { stroke: var(--line); stroke-width: 1.4; stroke-dasharray: 3 4; }
+svg.dg .lbl { fill: var(--fg); font: 12px var(--f-body); }
+svg.dg .frame { fill: none; stroke: var(--accent); stroke-dasharray: 6 4; }
+svg.dg .frame-lbl { fill: var(--accent); font: 600 11px var(--f-mono); }
+.status { display: inline-block; font: 500 0.72rem/1 var(--f-mono); padding: 4px 7px; border-radius: 4px; letter-spacing: 0.04em; }
+.ok { background: var(--accent-soft); color: var(--accent); }
+.todo { background: var(--warn-soft); color: var(--warn); }
+.meta { font: 0.85rem var(--f-mono); color: var(--muted); }
+</style>
+
+<main>
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <span class="eyebrow">DSBA 6188 · mini project</span>
+    <h1>RAG Agent: Streamlit + Gemini + Qdrant / Snowflake</h1>
+    <p class="lede">A Streamlit app with two pages. The <b>Chat</b> page runs a Gemini agent that can search your PDFs. The <b>Create vectors</b> page turns PDFs into vectors in Qdrant or Snowflake.</p>
+    <p class="meta">Folder: Code/dsba6188_rag_agent · 2026-10-17</p>
+  </header>
+
+  <section>
+    <h2>Your question: can the RSA key go in .env?</h2>
+    <div class="answer">
+      <p><b>Yes.</b> The app supports two methods. Use method A.</p>
+      <ul>
+        <li><b>A. Path in .env (recommended).</b> Set <code>SNOWFLAKE_PRIVATE_KEY_PATH=keys/rsa_key.p8</code>. The key stays in a file with <code>chmod 600</code>.</li>
+        <li><b>B. Key text in .env.</b> Set <code>SNOWFLAKE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----"</code> on one line. Use this on hosts with no file system, for example Streamlit Community Cloud secrets.</li>
+      </ul>
+      <p>Method A is safer and easier. A PEM key has many lines. In a .env file, line breaks are easy to break. Tools that print environment variables can also show the key text.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Architecture</h2>
+    <div class="diagram">
+<svg class="dg" viewBox="0 0 720 606" style="min-width:518px" role="img" aria-labelledby="arch-t">
+<title id="arch-t">Architecture: pages, rag modules, models and databases</title>
+<defs><marker id="ah-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="n" x="300" y="16" width="120" height="36" rx="18.0"/>
+<text class="t" x="360.0" y="34.0" text-anchor="middle" dominant-baseline="central">User</text>
+<rect class="n-accent" x="250" y="82" width="220" height="52" rx="6"/>
+<text class="t mono" x="360.0" y="100.0" text-anchor="middle" dominant-baseline="central">streamlit_app.py</text>
+<text class="t-sub" x="360.0" y="116.0" text-anchor="middle" dominant-baseline="central">navigation + sidebar list</text>
+<path class="n" d="M560,17 a45.0,7 0 0 0 90,0 v32 a45.0,7 0 0 1 -90,0 z"/>
+<ellipse class="n" cx="605.0" cy="17" rx="45.0" ry="7"/>
+<text class="t mono" x="605.0" y="36.5" text-anchor="middle" dominant-baseline="central">.env</text>
+<rect class="n" x="530" y="88" width="150" height="40" rx="6"/>
+<text class="t mono" x="605.0" y="108.0" text-anchor="middle" dominant-baseline="central">rag/config.py</text>
+<rect class="n-accent" x="60" y="170" width="200" height="40" rx="6"/>
+<text class="t" x="160.0" y="190.0" text-anchor="middle" dominant-baseline="central">Chat page</text>
+<rect class="n-accent" x="460" y="170" width="200" height="40" rx="6"/>
+<text class="t" x="560.0" y="190.0" text-anchor="middle" dominant-baseline="central">Create vectors page</text>
+<rect class="n" x="60" y="250" width="200" height="52" rx="6"/>
+<text class="t mono" x="160.0" y="268.0" text-anchor="middle" dominant-baseline="central">rag/agent.py</text>
+<text class="t-sub" x="160.0" y="284.0" text-anchor="middle" dominant-baseline="central">LangGraph ReAct agent</text>
+<rect class="n" x="460" y="250" width="200" height="52" rx="6"/>
+<text class="t mono" x="560.0" y="268.0" text-anchor="middle" dominant-baseline="central">rag/pdf.py</text>
+<text class="t-sub" x="560.0" y="284.0" text-anchor="middle" dominant-baseline="central">pypdf + splitter</text>
+<rect class="n" x="10" y="344" width="170" height="66" rx="6"/>
+<text class="t" x="95.0" y="361.0" text-anchor="middle" dominant-baseline="central">Chat model</text>
+<text class="t-sub mono" x="95.0" y="377.0" text-anchor="middle" dominant-baseline="central">Ollama gemma4:e2b</text>
+<text class="t-sub" x="95.0" y="393.0" text-anchor="middle" dominant-baseline="central">or Gemini</text>
+<rect class="n" x="196" y="344" width="160" height="66" rx="6"/>
+<text class="t" x="276.0" y="361.0" text-anchor="middle" dominant-baseline="central">Agent tools</text>
+<text class="t-sub mono" x="276.0" y="377.0" text-anchor="middle" dominant-baseline="central">search_documents</text>
+<text class="t-sub mono" x="276.0" y="393.0" text-anchor="middle" dominant-baseline="central">list_documents</text>
+<rect class="n-accent" x="380" y="430" width="200" height="52" rx="6"/>
+<text class="t mono" x="480.0" y="448.0" text-anchor="middle" dominant-baseline="central">rag/stores.py</text>
+<text class="t-sub" x="480.0" y="464.0" text-anchor="middle" dominant-baseline="central">one interface for both DBs</text>
+<rect class="n" x="20" y="530" width="280" height="66" rx="6"/>
+<text class="t" x="160.0" y="547.0" text-anchor="middle" dominant-baseline="central">Embeddings, 768 dims</text>
+<text class="t-sub mono" x="160.0" y="563.0" text-anchor="middle" dominant-baseline="central">Ollama nomic-embed-text:v1.5</text>
+<text class="t-sub mono" x="160.0" y="579.0" text-anchor="middle" dominant-baseline="central">or gemini-embedding-001</text>
+<path class="n-db" d="M340,537 a85.0,7 0 0 0 170,0 v52 a85.0,7 0 0 1 -170,0 z"/>
+<ellipse class="n-db" cx="425.0" cy="537" rx="85.0" ry="7"/>
+<text class="t" x="425.0" y="558.5" text-anchor="middle" dominant-baseline="central">Qdrant Cloud</text>
+<text class="t-sub" x="425.0" y="574.5" text-anchor="middle" dominant-baseline="central">API key</text>
+<path class="n-db" d="M540,537 a85.0,7 0 0 0 170,0 v52 a85.0,7 0 0 1 -170,0 z"/>
+<ellipse class="n-db" cx="625.0" cy="537" rx="85.0" ry="7"/>
+<text class="t" x="625.0" y="558.5" text-anchor="middle" dominant-baseline="central">Snowflake table</text>
+<text class="t-sub" x="625.0" y="574.5" text-anchor="middle" dominant-baseline="central">RSA key-pair</text>
+<path class="e" d="M360,52 L360,82" marker-end="url(#ah-arch)"/>
+<path class="e e-dash" d="M605,56 L605,88" marker-end="url(#ah-arch)"/>
+<path class="e" d="M300,134 L300,150 L160,150 L160,170" marker-end="url(#ah-arch)"/>
+<path class="e" d="M420,134 L420,150 L560,150 L560,170" marker-end="url(#ah-arch)"/>
+<path class="e" d="M160,210 L160,250" marker-end="url(#ah-arch)"/>
+<path class="e" d="M560,210 L560,250" marker-end="url(#ah-arch)"/>
+<path class="e" d="M120,302 L120,322 L95,322 L95,344" marker-end="url(#ah-arch)"/>
+<path class="e" d="M200,302 L200,322 L276,322 L276,344" marker-end="url(#ah-arch)"/>
+<path class="e" d="M276,410 L276,456 L380,456" marker-end="url(#ah-arch)"/>
+<path class="e" d="M560,302 L560,430" marker-end="url(#ah-arch)"/>
+<path class="e" d="M430,482 L430,506 L160,506 L160,530" marker-end="url(#ah-arch)"/>
+<path class="e" d="M480,482 L480,506 L425,506 L425,530" marker-end="url(#ah-arch)"/>
+<path class="e" d="M530,482 L530,506 L625,506 L625,530" marker-end="url(#ah-arch)"/>
+</svg>
+    </div>
+    <p>The sidebar has two provider choices. <b>Embedding provider</b> (shared by both pages) and <b>Chat provider</b> (Chat page). Each one is <b>Ollama</b> (local, no quota) or <b>Google AI Studio</b>. You can mix them, for example Ollama embeddings with a Gemini chat model.</p>
+    <p>Both pages use <code>rag/stores.py</code>. The pages do not know which database is in use. The sidebar selects the backend and the collection (Qdrant) or table (Snowflake) name.</p>
+  </section>
+
+  <section>
+    <h2>Flow 1: create vectors</h2>
+    <div class="diagram">
+<svg class="dg" viewBox="0 0 1000 626" style="min-width:720px" role="img" aria-labelledby="flow1-t">
+<title id="flow1-t">Flow 1: create vectors, sequence diagram</title>
+<defs><marker id="ah-flow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<line class="life" x1="70" y1="56" x2="70" y2="616"/>
+<rect class="n-accent" x="4.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="70.0" y="33.0" text-anchor="middle" dominant-baseline="central">User</text>
+<line class="life" x1="300" y1="56" x2="300" y2="616"/>
+<rect class="n-accent" x="234.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="300.0" y="25.0" text-anchor="middle" dominant-baseline="central">Create vectors</text>
+<text class="t-sub" x="300.0" y="41.0" text-anchor="middle" dominant-baseline="central">page</text>
+<line class="life" x1="460" y1="56" x2="460" y2="616"/>
+<rect class="n-accent" x="394.0" y="10" width="132" height="46" rx="6"/>
+<text class="t mono" x="460.0" y="33.0" text-anchor="middle" dominant-baseline="central">rag/pdf.py</text>
+<line class="life" x1="620" y1="56" x2="620" y2="616"/>
+<rect class="n-accent" x="554.0" y="10" width="132" height="46" rx="6"/>
+<text class="t mono" x="620.0" y="33.0" text-anchor="middle" dominant-baseline="central">rag/stores.py</text>
+<line class="life" x1="770" y1="56" x2="770" y2="616"/>
+<rect class="n-accent" x="704.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="770.0" y="25.0" text-anchor="middle" dominant-baseline="central">Embeddings</text>
+<text class="t-sub" x="770.0" y="41.0" text-anchor="middle" dominant-baseline="central">Ollama or Gemini</text>
+<line class="life" x1="920" y1="56" x2="920" y2="616"/>
+<rect class="n-accent" x="854.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="920.0" y="25.0" text-anchor="middle" dominant-baseline="central">Qdrant or</text>
+<text class="t-sub" x="920.0" y="41.0" text-anchor="middle" dominant-baseline="central">Snowflake</text>
+<path class="e" d="M70,104 L297,104" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="185.0" y="83" text-anchor="middle">Upload PDFs,</text>
+<text class="lbl" x="185.0" y="97" text-anchor="middle">set chunk size and overlap</text>
+<path class="e" d="M300,144 L457,144" marker-end="url(#ah-flow1)"/>
+<text class="lbl mono" x="380.0" y="137" text-anchor="middle">pdf_to_pages()</text>
+<path class="e e-dash" d="M460,198 L303,198" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="380.0" y="177" text-anchor="middle">one Document per page</text>
+<text class="lbl" x="380.0" y="191" text-anchor="middle">(source, page)</text>
+<path class="e" d="M300,238 L457,238" marker-end="url(#ah-flow1)"/>
+<text class="lbl mono" x="380.0" y="231" text-anchor="middle">split_pages()</text>
+<path class="e e-dash" d="M460,278 L303,278" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="380.0" y="271" text-anchor="middle">chunks</text>
+<path class="e e-dash" d="M300,332 L73,332" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="185.0" y="311" text-anchor="middle">show files, pages, chunks,</text>
+<text class="lbl" x="185.0" y="325" text-anchor="middle">preview table</text>
+<path class="e" d="M70,372 L297,372" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="185.0" y="365" text-anchor="middle">Click &quot;Create vectors&quot;</text>
+<path class="e" d="M300,412 L617,412" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="460.0" y="405" text-anchor="middle">write_chunks(replace?)</text>
+<path class="e" d="M620,452 L767,452" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="695.0" y="445" text-anchor="middle">embed chunk text</text>
+<path class="e e-dash" d="M770,492 L623,492" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="695.0" y="485" text-anchor="middle">768-dim vectors</text>
+<path class="e" d="M620,546 L917,546" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="770.0" y="525" text-anchor="middle">insert text + metadata</text>
+<text class="lbl" x="770.0" y="539" text-anchor="middle">+ vector</text>
+<path class="e e-dash" d="M300,586 L73,586" marker-end="url(#ah-flow1)"/>
+<text class="lbl" x="185.0" y="579" text-anchor="middle">&quot;Stored N chunks&quot;</text>
+</svg>
+    </div>
+    <ul>
+      <li>Each chunk keeps its <b>source file</b> and <b>page number</b>. The agent uses them for citations.</li>
+      <li><b>Replace</b> off: new chunks are added. Replace on: old data is deleted first.</li>
+      <li>Scanned PDFs have no text layer. The page shows a warning for them. They need OCR first.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Flow 2: chat with the agent</h2>
+    <div class="diagram">
+<svg class="dg" viewBox="0 0 1040 544" style="min-width:748px" role="img" aria-labelledby="flow2-t">
+<title id="flow2-t">Flow 2: chat with the agent, sequence diagram</title>
+<defs><marker id="ah-flow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<line class="life" x1="70" y1="56" x2="70" y2="534"/>
+<rect class="n-accent" x="4.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="70.0" y="33.0" text-anchor="middle" dominant-baseline="central">User</text>
+<line class="life" x1="240" y1="56" x2="240" y2="534"/>
+<rect class="n-accent" x="174.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="240.0" y="33.0" text-anchor="middle" dominant-baseline="central">Chat page</text>
+<line class="life" x1="420" y1="56" x2="420" y2="534"/>
+<rect class="n-accent" x="354.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="420.0" y="33.0" text-anchor="middle" dominant-baseline="central">ReAct agent</text>
+<line class="life" x1="610" y1="56" x2="610" y2="534"/>
+<rect class="n-accent" x="544.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="610.0" y="25.0" text-anchor="middle" dominant-baseline="central">Chat model</text>
+<text class="t-sub" x="610.0" y="41.0" text-anchor="middle" dominant-baseline="central">Ollama or Gemini</text>
+<line class="life" x1="790" y1="56" x2="790" y2="534"/>
+<rect class="n-accent" x="724.0" y="10" width="132" height="46" rx="6"/>
+<text class="t mono" x="790.0" y="33.0" text-anchor="middle" dominant-baseline="central">search_documents</text>
+<line class="life" x1="960" y1="56" x2="960" y2="534"/>
+<rect class="n-accent" x="894.0" y="10" width="132" height="46" rx="6"/>
+<text class="t" x="960.0" y="33.0" text-anchor="middle" dominant-baseline="central">Vector DB</text>
+<rect class="frame" x="396" y="140" width="588" height="244" rx="4"/>
+<text class="frame-lbl" x="404" y="154">loop: until the model gives an answer</text>
+<path class="e" d="M70,90 L237,90" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="155.0" y="83" text-anchor="middle">Question</text>
+<path class="e" d="M240,130 L417,130" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="330.0" y="123" text-anchor="middle">history + question</text>
+<path class="e" d="M420,170 L607,170" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="515.0" y="163" text-anchor="middle">messages + tool schema</text>
+<path class="e e-dash" d="M610,210 L423,210" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="515.0" y="203" text-anchor="middle">tool call (query)</text>
+<path class="e" d="M420,250 L787,250" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="605.0" y="243" text-anchor="middle">query</text>
+<path class="e" d="M790,290 L957,290" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="875.0" y="283" text-anchor="middle">similarity search, top k</text>
+<path class="e e-dash" d="M960,330 L793,330" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="875.0" y="323" text-anchor="middle">chunks + scores</text>
+<path class="e e-dash" d="M790,370 L423,370" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="605.0" y="363" text-anchor="middle">text with (source, page)</text>
+<path class="e e-dash" d="M610,410 L423,410" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="515.0" y="403" text-anchor="middle">final answer with citations</text>
+<path class="e e-dash" d="M420,450 L243,450" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="330.0" y="443" text-anchor="middle">answer</text>
+<path class="e e-dash" d="M240,504 L73,504" marker-end="url(#ah-flow2)"/>
+<text class="lbl" x="155.0" y="483" text-anchor="middle">answer + collapsed</text>
+<text class="lbl" x="155.0" y="497" text-anchor="middle">list of searches</text>
+</svg>
+    </div>
+    <p>The model decides when to search. For a greeting, it answers directly. For a document question, it can search more than once. The chat shows each search in a collapsed "Thought for N seconds" timeline.</p>
+  </section>
+
+  <section>
+    <h2>Folder structure</h2>
+<pre class="code">dsba6188_rag_agent/
+├── streamlit_app.py        entry point: navigation, shared sidebar
+├── app_pages/
+│   ├── chat.py             chat UI, model picker, RAG toggle, top k
+│   └── ingest.py           PDF upload, chunk preview, "Create vectors"
+├── rag/
+│   ├── config.py           reads .env (project first, then Code/.env)
+│   ├── llm.py              Gemini model list, chat model, embeddings
+│   ├── agent.py            system prompt, search_documents tool, agent
+│   ├── pdf.py              PDF → pages → chunks
+│   ├── stores.py           one interface for Qdrant and Snowflake
+│   └── snowflake_store.py  Snowflake vector store, RSA key loading
+├── keys/README.md          how to make rsa_key.p8 and register it
+├── .env.example            every setting, with comments
+├── requirements.txt
+├── README.md
+└── PLAN.html               this page</pre>
+  </section>
+
+  <section>
+    <h2>Settings in .env</h2>
+    <p>Copy <code>.env.example</code> to <code>.env</code> in the project folder. The app also reads <code>Code/.env</code>. Your <code>GOOGLE_API_KEY</code> is already there, so you do not need to copy it.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Name</th><th>Used by</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td><code>GOOGLE_API_KEY</code></td><td>Google provider only</td><td>From aistudio.google.com/apikey</td></tr>
+          <tr><td><code>OLLAMA_BASE_URL</code>, <code>OLLAMA_CHAT_MODEL</code>, <code>OLLAMA_EMBED_MODEL</code>, <code>OLLAMA_EMBED_DIM</code></td><td>Ollama provider (optional)</td><td>Defaults: http://localhost:11434, gemma4:e2b, nomic-embed-text:v1.5, 768</td></tr>
+          <tr><td><code>QDRANT_URL</code></td><td>Qdrant</td><td>Cluster URL with port 6333</td></tr>
+          <tr><td><code>QDRANT_API_KEY</code></td><td>Qdrant</td><td>From the Qdrant Cloud console</td></tr>
+          <tr><td><code>SNOWFLAKE_ACCOUNT</code></td><td>Snowflake</td><td>Format <code>ORGNAME-ACCOUNTNAME</code></td></tr>
+          <tr><td><code>SNOWFLAKE_USER</code>, <code>_ROLE</code>, <code>_WAREHOUSE</code>, <code>_DATABASE</code>, <code>_SCHEMA</code></td><td>Snowflake</td><td>Role needs CREATE TABLE in the schema</td></tr>
+          <tr><td><code>SNOWFLAKE_PRIVATE_KEY_PATH</code></td><td>Snowflake</td><td>Method A. Relative paths start at the project folder</td></tr>
+          <tr><td><code>SNOWFLAKE_PRIVATE_KEY</code></td><td>Snowflake</td><td>Method B. Used only when no path is set</td></tr>
+          <tr><td><code>SNOWFLAKE_PRIVATE_KEY_PASSPHRASE</code></td><td>Snowflake</td><td>Only for an encrypted key</td></tr>
+          <tr><td><code>GOOGLE_CHAT_MODEL</code>, <code>GOOGLE_EMBED_MODEL</code>, <code>GOOGLE_EMBED_DIM</code>, <code>RAG_COLLECTION</code></td><td>Optional</td><td>Defaults: gemini-3.5-flash, gemini-embedding-001, 768, dsba6188_docs. Suggested: <code>RAG_COLLECTION=dsba6188_nomic</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The sidebar lists every missing value for the selected backend.</p>
+  </section>
+
+  <section>
+    <h2>Possible next features</h2>
+    <ul>
+      <li>Show source chunks under each answer as clickable citations.</li>
+      <li>Delete one PDF's chunks without replacing the whole collection.</li>
+      <li>Snowflake Cortex <code>EMBED_TEXT_768</code> as an option, so embeddings run inside Snowflake.</li>
+      <li>Hybrid search (keyword + vector) for part numbers and error codes in manuals.</li>
+    </ul>
+  </section>
+</main>
