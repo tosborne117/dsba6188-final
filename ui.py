@@ -1,30 +1,45 @@
+
 """Visual styling and floating chatbot launcher for the housing assistant."""
+
+import base64
+from pathlib import Path
 
 import streamlit as st
 
 
-# The assets remain in the main branch, so the alt branch can reuse the exact
-# same background and launcher artwork without duplicating binary files.
-BACKGROUND_URL = (
-    "https://raw.githubusercontent.com/tosborne117/dsba6188-final/"
-    "main/static/background.png"
-)
-CHATBOT_IMAGE_URL = (
-    "https://raw.githubusercontent.com/tosborne117/dsba6188-final/"
-    "main/static/chatbot-image.png"
-)
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+
+BACKGROUND_PATH = STATIC_DIR / "background.png"
+CHATBOT_IMAGE_PATH = STATIC_DIR / "chatbot-image.png"
+
+
+def load_image_as_base64(image_path):
+    """Read a local image and return its Base64 representation."""
+    if not image_path.exists():
+        raise FileNotFoundError(
+            f"Required image not found: {image_path}"
+        )
+
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
 
 
 def apply_chat_theme():
-    """Apply the background, floating chat panel, and fixed launcher."""
+    """Apply the background, floating chat panel, and launcher."""
+
     if "chat_open" not in st.session_state:
         st.session_state.chat_open = False
+
+    background_image = load_image_as_base64(BACKGROUND_PATH)
+    chatbot_image = load_image_as_base64(CHATBOT_IMAGE_PATH)
 
     st.markdown(
         f"""
         <style>
         [data-testid="stAppViewContainer"] {{
-            background-image: url("{BACKGROUND_URL}");
+            background-image:
+                url("data:image/png;base64,{background_image}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -43,36 +58,7 @@ def apply_chat_theme():
             color: #f5f5f5;
         }}
 
-        .page-intro {{
-            max-width: 780px;
-            margin: 11vh auto 20px auto;
-            padding: 30px 36px;
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.88);
-            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.13);
-            text-align: center;
-        }}
-
-        .page-intro h1 {{
-            color: #003366;
-            font-size: clamp(2rem, 4vw, 3.2rem);
-            margin: 8px 0 12px 0;
-        }}
-
-        .page-intro p {{
-            color: #424b55;
-            font-size: 1.05rem;
-            margin-bottom: 0;
-        }}
-
-        .page-kicker {{
-            color: #52708e;
-            font-size: 0.78rem;
-            font-weight: 700;
-            letter-spacing: 0.18em;
-        }}
-
-        /* Floating conversation panel */
+        /* Floating chatbot panel */
         .st-key-chat_window {{
             position: fixed !important;
             bottom: 90px !important;
@@ -103,6 +89,7 @@ def apply_chat_theme():
             font-size: 12px;
         }}
 
+        /* Conversation history: normal document flow */
         .st-key-chat_history {{
             overflow-y: auto !important;
             overflow-x: hidden !important;
@@ -135,10 +122,13 @@ def apply_chat_theme():
             color: #222222 !important;
         }}
 
+        /* Input form stays after the history in normal flow.
+           Reserve right-side space for the overlapping launcher. */
         .st-key-chat_window [data-testid="stForm"] {{
+            width: calc(100% - 70px) !important;
+            max-width: calc(100% - 70px) !important;
             background: #ffffff !important;
-            padding-top: 10px !important;
-            padding-bottom: 0 !important;
+            padding: 10px 0 0 0 !important;
             border-top: 1px solid #eeeeee !important;
             margin-top: 8px !important;
         }}
@@ -148,7 +138,7 @@ def apply_chat_theme():
             color: #222222 !important;
             border: 1px solid #cccccc !important;
             border-radius: 8px !important;
-            min-height: 42px;
+            min-height: 42px !important;
         }}
 
         .st-key-chat_window [data-testid="stFormSubmitButton"] button {{
@@ -156,19 +146,22 @@ def apply_chat_theme():
             color: #ffffff !important;
             border: none !important;
             border-radius: 8px !important;
+            min-height: 42px !important;
+            white-space: nowrap !important;
         }}
 
         .st-key-chat_window [data-testid="stButton"] button {{
             border-radius: 8px;
         }}
 
-        /* Fixed image launcher */
+        /* Launcher shifted left by 35 pixels */
         .st-key-chatbot_toggle {{
             position: fixed !important;
             bottom: 40px !important;
-            right: 45px !important;
+            right: 115px !important;
             width: 110px !important;
             height: 110px !important;
+            #transform: translateX(-35px) !important;
             z-index: 999999 !important;
         }}
 
@@ -179,7 +172,8 @@ def apply_chat_theme():
             padding: 0 !important;
             border: none !important;
             border-radius: 50% !important;
-            background-image: url("{CHATBOT_IMAGE_URL}") !important;
+            background-image:
+                url("data:image/png;base64,{chatbot_image}") !important;
             background-size: contain !important;
             background-position: center !important;
             background-repeat: no-repeat !important;
@@ -191,29 +185,30 @@ def apply_chat_theme():
         }}
 
         .st-key-chatbot_toggle button:hover {{
-            transform: scale(1.05);
             border: none !important;
+            filter: brightness(1.05);
         }}
 
         @media (max-width: 700px) {{
-            .page-intro {{
-                margin: 5vh 8px 16px 8px;
-                padding: 22px 18px;
-            }}
-
             .st-key-chat_window {{
                 right: 10px !important;
-                bottom: 85px !important;
+                bottom: 145px !important;
                 width: calc(100vw - 20px) !important;
-                height: calc(100vh - 110px) !important;
+                height: calc(100vh - 170px) !important;
                 max-width: calc(100vw - 20px) !important;
-                max-height: calc(100vh - 110px) !important;
+                max-height: calc(100vh - 170px) !important;
                 padding: 15px !important;
+            }}
+
+            .st-key-chat_window [data-testid="stForm"] {{
+                width: 100% !important;
+                max-width: 100% !important;
             }}
 
             .st-key-chatbot_toggle {{
                 bottom: 15px !important;
-                right: 15px !important;
+                right: 50px !important;
+                transform: translateX(-35px) !important;
             }}
         }}
         </style>
@@ -221,7 +216,11 @@ def apply_chat_theme():
         unsafe_allow_html=True,
     )
 
-    if st.button(" ", key="chatbot_toggle", help="Open or close the assistant"):
+    if st.button(
+        " ",
+        key="chatbot_toggle",
+        help="Open or close the assistant",
+    ):
         st.session_state.chat_open = not st.session_state.chat_open
         st.rerun()
 
