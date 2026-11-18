@@ -1,133 +1,137 @@
+"""TF-IDF property retrieval and Ollama-based recommendation generation."""
+
+from pathlib import Path
 
 import pandas as pd
 import requests
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Load housing data and prepare descriptions
-df = pd.read_csv("austinHousingData.csv")
+
+DATA_PATH = Path(__file__).resolve().parent / "austinHousingData.csv"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "gemma3:1b"
+
+# Load and index the historical Austin property descriptions.
+df = pd.read_csv(DATA_PATH)
 df = df.dropna(subset=["description"]).copy()
 df["description"] = df["description"].astype(str).str.strip()
 df = df[df["description"] != ""].reset_index(drop=True)
 df = df[df["description"].str.len() >= 100].reset_index(drop=True)
 
-# Create text retrieval index
 vectorizer = TfidfVectorizer(stop_words="english", max_features=20000)
 house_vectors = vectorizer.fit_transform(df["description"])
 
 
-
 def retrieve_houses(question, top_k=3, max_price=None, min_bedrooms=None):
+    """Return the highest-scoring properties that satisfy numeric filters."""
     query_vector = vectorizer.transform([question])
     scores = cosine_similarity(query_vector, house_vectors).flatten()
-
     ranked_indices = scores.argsort()[::-1]
+
     matches = []
+    for index in ranked_indices:
+        house = df.iloc[index]
+        price = pd.to_numeric(house.get("latestPrice"), errors="coerce")
+        bedrooms = pd.to_numeric(house.get("numOfBedrooms"), errors="coerce")
 
-    for i in ranked_indices:
-        house = df.iloc[i]
+        if max_price is not None and (pd.isna(price) or price > max_price):
+            continue
+        if min_bedrooms is not None and (
+            pd.isna(bedrooms) or bedrooms < min_bedrooms
+        ):
+            continue
 
-        price = pd.to_numeric(house["latestPrice"], errors="coerce")
-        bedrooms = pd.to_numeric(house["numOfBedrooms"], errors="coerce")
-
-        if max_price is not None:
-            if pd.isna(price) or price > max_price:
-                continue
-
-        if min_bedrooms is not None:
-            if pd.isna(bedrooms) or bedrooms < min_bedrooms:
-                continue
-
-        matches.append((house, float(scores[i])))
-
-        if len(matches) == top_k:
+        matches.append((house, float(scores[index])))
+        if len(matches) >= top_k:
             break
 
     return matches
 
 
+def generate_answer(question, matches=None, max_price=None, min_bedrooms=None):
+    """Generate a grounded recommendation using only the supplied matches."""
+    if matches is None:
+        matches = retrieve_houses(
+            question,
+            top_k=3,
+            max_price=max_price,
+            min_bedrooms=min_bedrooms,
+        )
 
+    if not matches:
+        return "I couldn't find properties matching those preferences."
 
-def generate_answer(question, max_price=None, min_bedrooms=None):
-    matches = retrieve_houses(
-        question,
-        top_k=3,
-        max_price=max_price,
-        min_bedrooms=min_bedrooms
-    )
-
-
-    # Give the LLM only the retrieved property information
-    context = ""
-
+    context_blocks = []
     for number, (house, score) in enumerate(matches, start=1):
-        context += f"""
+        price = pd.to_numeric(house.get("latestPrice"), errors="coerce")
+        price_text = f"${price:,.0f}" if not pd.isna(price) else "Unavailable"
+        context_blocks.append(
+            f"""
 Property {number}
-Address: {house['streetAddress']}
-Price: ${house['latestPrice']:,.0f}
-Bedrooms: {house['numOfBedrooms']}
-Bathrooms: {house['numOfBathrooms']}
-Description: {house['description'][:900]}
-"""
+Address: {house.get('streetAddress', 'Address unavailable')}
+Price: {price_text}
+Bedrooms: {house.get('numOfBedrooms', 'Not listed')}
+Bathrooms: {house.get('numOfBathrooms', 'Not listed')}
+Description: {str(house.get('description', ''))[:900]}
+Retrieval relevance score: {score:.3f}
+""".strip()
+        )
 
-    
+    context = "\n\n".join(context_blocks)
+    property_count = len(matches)
+
     prompt = f"""
-You are an AI real estate assistant helping users explore
+You are a helpful AI real estate assistant helping users explore
 historical Austin housing data.
 
-User question:
+User request:
 {question}
 
-Here are the ONLY properties you can recommend:
+The following are the ONLY properties you may recommend:
 {context}
 
 STRICT RULES:
-1. Recommend exactly 3 properties, numbered 1, 2, and 3.
-2. Only use properties listed in the provided context.
+1. Recommend no more than {property_count} properties, using only the properties
+   supplied in the context.
+2. Never invent an address, price, property feature, or listing.
 3. Use the exact address and price from the context.
-4. Explain briefly why each property matches the user's request.
-5. Do not invent features or claim a property has something
-   unless the description explicitly supports it.
-6. If a requested feature is not confirmed, say so.
-7. Do not recommend additional properties.
-8. Keep the response clear, concise, and professional.
-9. These are historical listings, not verified active listings.
-10. For each property, include a short, exact quote from its
-    description supporting the recommendation.
-11. A large lot or corner lot does NOT automatically mean
-    a large backyard. Never assume a feature is present.
-12. If a requested feature is not explicitly confirmed,
-    say "This feature is not confirmed in the description."
+4. Briefly explain why each property matches the user's request.
+5. Include a short exact quote from each property's description as evidence.
+6. If a requested feature is not explicitly supported by the description, say:
+   "This feature is not confirmed in the description."
+7. A large lot or corner lot does NOT automatically mean a large backyard.
+8. These are historical listings, not verified active listings.
+9. Keep the response clear, concise, and professional.
+10. If fewer than three properties are supplied, recommend only those supplied.
 
-Format:
-
-1. Property address - Price
-   Why it matches: Brief explanation.
-
-2. Property address - Price
-   Why it matches: Brief explanation.
-
-3. Property address - Price
-   Why it matches: Brief explanation.
+Format the response in Markdown with a numbered list. For each property use:
+**[Address] — [Price]**
+- **Why it matches:** ...
+- **Description evidence:** "..."
 """
 
-
     response = requests.post(
-        "http://localhost:11434/api/generate",
+        OLLAMA_URL,
         json={
-            "model": "gemma3:1b",
+            "model": OLLAMA_MODEL,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.2}
+            "options": {"temperature": 0.2},
         },
-        timeout=120
+        timeout=120,
     )
     response.raise_for_status()
 
-    return response.json()["response"]
+    result = response.json().get("response", "").strip()
+    if not result:
+        raise RuntimeError("Ollama returned an empty response.")
+
+    return result
 
 
 if __name__ == "__main__":
-    question = input("What kind of house are you looking for? ")
+    user_question = input("What kind of house are you looking for? ")
+    found = retrieve_houses(user_question)
     print("\nAI Recommendation:\n")
-    print(generate_answer(question))
+    print(generate_answer(user_question, matches=found))
