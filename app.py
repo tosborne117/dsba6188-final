@@ -5,8 +5,13 @@ import re
 
 import streamlit as st
 
-from rag_chat import classify_intent, generate_conversation_answer, generate_answer, retrieve_houses
-from ui import apply_chat_theme, close_assistant
+from rag_chat import (
+    classify_intent,
+    generate_conversation_answer,
+    generate_answer,
+    retrieve_houses,
+)
+from ui import apply_chat_theme
 
 
 # ---------------------------------------------------------
@@ -31,19 +36,22 @@ if "messages" not in st.session_state:
 # ---------------------------------------------------------
 
 def extract_search_constraints(question):
-    """Extract a maximum price and minimum bedroom count from a question."""
+    """Extract a maximum price and minimum bedroom count."""
 
     question = question.lower().replace(",", "")
 
     max_price = None
     min_bedrooms = None
 
-    # Match prices such as:
-    # $500,000, 500000, 500k, or 1.2m
+    # Examples:
+    # under $500,000
+    # budget of 450k
+    # 500k max
+    # no more than 600000
     price_pattern = (
         r"(?:under|below|less than|no more than|at most|"
-        r"maximum(?: price)?(?: of)?|budget(?: of)?|"
-        r"up to)\s*\$?(\d+(?:\.\d+)?)\s*(k|m)?"
+        r"maximum(?: price)?(?: of)?|budget(?: of)?|up to)"
+        r"\s*\$?(\d+(?:\.\d+)?)\s*(k|m)?"
         r"|"
         r"\$?(\d+(?:\.\d+)?)\s*(k|m)?\s*(?:max|maximum)"
     )
@@ -65,8 +73,11 @@ def extract_search_constraints(question):
 
         max_price = amount
 
-    # Match bedroom requirements such as:
-    # at least 3 bedrooms, 3+ bedrooms, 3 bedroom, or 3br
+    # Examples:
+    # at least 3 bedrooms
+    # 3+ bedrooms
+    # 3 bedroom
+    # 3br
     bedroom_patterns = [
         r"(?:at least|minimum of|min(?:imum)?)\s*(\d+)\s*(?:bedrooms?|br)\b",
         r"(\d+)\s*\+\s*(?:bedrooms?|br)\b",
@@ -126,105 +137,26 @@ if not chat_open:
     st.stop()
 
 
+# ---------------------------------------------------------
+# Chatbot panel
+# ---------------------------------------------------------
+
 with st.container(key="chat_window"):
 
-    # Chatbot header and close button
-    header_col, close_col = st.columns(
-        [9, 1],
-        vertical_alignment="center",
+    # Header
+    st.markdown(
+        '<div class="assistant-heading">Erica - Virtual Assistant</div>'
+        '<div class="assistant-subheading">'
+        'Ask about homes, features, and your search preferences.'
+        '</div>',
+        unsafe_allow_html=True,
     )
-
-    with header_col:
-        st.markdown(
-            '<div class="assistant-heading">Austin Real Estate Assistant</div>'
-            '<div class="assistant-subheading">'
-            'Ask about homes, features, and your search preferences.'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-    with close_col:
-        if st.button(
-            "✕",
-            key="close_chatbot",
-            help="Close chatbot",
-        ):
-            close_assistant()
-            st.rerun()
 
     st.divider()
 
-
-    # -----------------------------------------------------
-    # Conversation history
-    # -----------------------------------------------------
-
-    # The history is placed before the form so the input
-    # remains at the bottom of the chatbot panel.
-
-    with st.container(height=470, key="chat_history"):
-
-        if not st.session_state.messages:
-            with st.chat_message("assistant", avatar="🏡"):
-                st.markdown(
-                    "Welcome! I'm your Austin real estate assistant. "
-                    "Tell me what you're looking for—for example, a home "
-                    "with a renovated kitchen, an open floor plan, or a "
-                    "large backyard."
-                )
-
-        for message in st.session_state.messages:
-
-            avatar = (
-                "🧑"
-                if message["role"] == "user"
-                else "🏡"
-            )
-
-            with st.chat_message(
-                message["role"],
-                avatar=avatar,
-            ):
-
-                st.markdown(message["content"])
-
-                # Display property details below assistant responses
-                if message["role"] == "assistant":
-
-                    for index, listing in enumerate(
-                        message.get("listings", []),
-                        start=1,
-                    ):
-
-                        price_text = (
-                            f"${listing['price']:,.0f}"
-                            if listing["price"] is not None
-                            else "Price unavailable"
-                        )
-
-                        with st.expander(
-                            f"{index}. {listing['address']} — {price_text}"
-                        ):
-
-                            st.write(
-                                f"**Bedrooms:** {listing['bedrooms']}"
-                            )
-
-                            st.write(
-                                f"**Bathrooms:** {listing['bathrooms']}"
-                            )
-
-                            st.write(
-                                f"**Relevance score:** "
-                                f"{listing['score']:.3f}"
-                            )
-
-                            st.write(
-                                "**Original property description:**"
-                            )
-
-                            st.write(listing["description"])
-
+    # Reserve a location for the conversation history.
+    # The input form will appear immediately below it.
+    history_slot = st.empty()
 
     # -----------------------------------------------------
     # Message input
@@ -256,30 +188,109 @@ with st.container(key="chat_window"):
                 use_container_width=True,
             )
 
+    # -----------------------------------------------------
+    # Conversation history display
+    # -----------------------------------------------------
+
+    def render_history(show_thinking=False):
+        """Render messages and optionally show a Thinking indicator."""
+
+        with history_slot.container():
+
+            with st.container(height=470, key="chat_history"):
+
+                # Initial welcome message
+                if not st.session_state.messages:
+                    with st.chat_message("assistant", avatar="🏡"):
+                        st.markdown(
+                            "Welcome! I'm your Austin real estate assistant. "
+                            "Tell me what you're looking for—for example, a "
+                            "home with a renovated kitchen, an open floor "
+                            "plan, or a large backyard."
+                        )
+
+                # Display existing conversation
+                for message in st.session_state.messages:
+
+                    avatar = (
+                        "🧑"
+                        if message["role"] == "user"
+                        else "🏡"
+                    )
+
+                    with st.chat_message(
+                        message["role"],
+                        avatar=avatar,
+                    ):
+
+                        st.markdown(message["content"])
+
+                        # Display property details below assistant responses
+                        if message["role"] == "assistant":
+
+                            for index, listing in enumerate(
+                                message.get("listings", []),
+                                start=1,
+                            ):
+
+                                price_text = (
+                                    f"${listing['price']:,.0f}"
+                                    if listing["price"] is not None
+                                    else "Price unavailable"
+                                )
+
+                                with st.expander(
+                                    f"{index}. {listing['address']} — {price_text}"
+                                ):
+
+                                    st.write(
+                                        f"**Bedrooms:** {listing['bedrooms']}"
+                                    )
+
+                                    st.write(
+                                        f"**Bathrooms:** {listing['bathrooms']}"
+                                    )
+
+                                    st.write(
+                                        f"**Relevance score:** "
+                                        f"{listing['score']:.3f}"
+                                    )
+
+                                    st.write(
+                                        "**Original property description:**"
+                                    )
+
+                                    st.write(listing["description"])
+
+                # Temporary assistant response while Ollama works
+                if show_thinking:
+                    with st.chat_message("assistant", avatar="🏡"):
+                        st.markdown("**Thinking...**")
 
     # -----------------------------------------------------
     # Process submitted messages
     # -----------------------------------------------------
 
-    
-if submitted and prompt.strip():
+    if submitted and prompt.strip():
 
-    user_question = prompt.strip()
+        user_question = prompt.strip()
 
-    # Save the user's message
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": user_question,
-        }
-    )
+        # Save the user's message
+        st.session_state.messages.append(
+            {
+                "role": "user",
+                "content": user_question,
+            }
+        )
 
-    try:
+        # Display the user's message and Thinking indicator
+        # before running the model.
+        render_history(show_thinking=True)
 
-        # Determine whether the user wants a property search
-        # or a normal conversational response.
-        with st.spinner("Thinking..."):
+        try:
 
+            # Determine whether the user wants a property search
+            # or a normal conversational response.
             intent = classify_intent(
                 user_question,
                 conversation_history=st.session_state.messages[:-1],
@@ -311,8 +322,13 @@ if submitted and prompt.strip():
                 detected_price = detected_filters["max_price"]
                 detected_bedrooms = detected_filters["min_bedrooms"]
 
-                sidebar_price = max_price if max_price > 0 else None
-                sidebar_bedrooms = min_bedrooms if min_bedrooms > 0 else None
+                sidebar_price = (
+                    max_price if max_price > 0 else None
+                )
+
+                sidebar_bedrooms = (
+                    min_bedrooms if min_bedrooms > 0 else None
+                )
 
                 # Apply the stricter price limit
                 if detected_price is not None and sidebar_price is not None:
@@ -328,7 +344,10 @@ if submitted and prompt.strip():
                     )
 
                 # Apply the stricter bedroom requirement
-                if detected_bedrooms is not None and sidebar_bedrooms is not None:
+                if (
+                    detected_bedrooms is not None
+                    and sidebar_bedrooms is not None
+                ):
                     effective_min_bedrooms = max(
                         detected_bedrooms,
                         sidebar_bedrooms,
@@ -340,6 +359,7 @@ if submitted and prompt.strip():
                         else sidebar_bedrooms
                     )
 
+                # Retrieve matching properties
                 matches = retrieve_houses(
                     user_question,
                     top_k=3,
@@ -362,13 +382,17 @@ if submitted and prompt.strip():
                         bedrooms = house.get("numOfBedrooms")
                         bathrooms = house.get("numOfBathrooms")
 
+                        # Convert price safely
                         try:
                             price = float(price)
+
                             if price != price:
                                 price = None
+
                         except (TypeError, ValueError):
                             price = None
 
+                        # Handle missing property information
                         if bedrooms is None or str(bedrooms) == "nan":
                             bedrooms = "N/A"
 
@@ -404,27 +428,35 @@ if submitted and prompt.strip():
 
                     listings = []
 
-        # Save the assistant response
-        st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": answer,
-                "listings": listings,
-            }
-        )
+            # ---------------------------------------------
+            # SAVE THE ASSISTANT RESPONSE
+            # ---------------------------------------------
 
-    except Exception as error:
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": answer,
+                    "listings": listings,
+                }
+            )
 
-        st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": (
-                    "I ran into a problem while processing your request. "
-                    f"Please try again. Details: {error}"
-                ),
-                "listings": [],
-            }
-        )
+        except Exception as error:
 
-    st.rerun()
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": (
+                        "I ran into a problem while processing your request. "
+                        f"Please try again. Details: {error}"
+                    ),
+                    "listings": [],
+                }
+            )
 
+        # Refresh the chatbot to replace Thinking with the response
+        st.rerun()
+
+    else:
+
+        # Display the existing conversation when no new message is submitted
+        render_history()
